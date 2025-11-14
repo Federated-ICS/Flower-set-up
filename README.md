@@ -58,6 +58,15 @@ pip install -r requirements.txt
 
 The federated learning system requires running the server and multiple clients.
 
+#### Quick Start: Run Tests
+
+First, verify everything works:
+```bash
+python test_setup.py
+```
+
+This tests all components independently (data generation, models, client creation).
+
 #### Step 1: Start the Server
 
 In a terminal, run:
@@ -94,6 +103,20 @@ For IsolationForest model, use:
 ```bash
 python run_client.py --client-id 0 --model-type isolation_forest
 ```
+
+### Quick Test with Simulation
+
+For a quick local test without network communication, use the simulation script:
+
+```bash
+# Test with LSTM Autoencoder
+python simulate_federated_learning.py --model-type lstm_autoencoder --num-rounds 3
+
+# Test with IsolationForest
+python simulate_federated_learning.py --model-type isolation_forest --num-rounds 3
+```
+
+This simulates the complete federated learning process locally without requiring multiple terminals or network setup.
 
 ### Command Line Options
 

@@ -173,8 +173,11 @@ class LSTMAutoencoderDetector:
         Save the model to disk.
         
         Args:
-            filepath: Path to save the model
+            filepath: Path to save the model (without extension)
         """
+        # Add .keras extension if not present
+        if not filepath.endswith('.keras') and not filepath.endswith('.h5'):
+            filepath = filepath + '.keras'
         self.model.save(filepath)
         # Save threshold separately
         threshold_path = filepath + '_threshold.npy'
@@ -186,11 +189,14 @@ class LSTMAutoencoderDetector:
         Load the model from disk.
         
         Args:
-            filepath: Path to load the model from
+            filepath: Path to load the model from (without extension)
         """
+        # Add .keras extension if not present
+        if not filepath.endswith('.keras') and not filepath.endswith('.h5'):
+            filepath = filepath + '.keras'
         self.model = keras.models.load_model(filepath)
         # Load threshold
-        threshold_path = filepath + '_threshold.npy'
+        threshold_path = filepath.replace('.keras', '_threshold.npy').replace('.h5', '_threshold.npy')
         try:
             self.threshold = np.load(threshold_path)
         except:

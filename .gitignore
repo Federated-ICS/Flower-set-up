@@ -37,6 +37,7 @@ env/
 # Saved model files (not source code)
 /models/
 *.h5
+*.keras
 *.pkl
 *.npy
 
