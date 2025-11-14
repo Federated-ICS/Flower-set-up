@@ -34,8 +34,8 @@ env/
 # Logs
 *.log
 
-# Models
-models/
+# Saved model files (not source code)
+/models/
 *.h5
 *.pkl
 *.npy
