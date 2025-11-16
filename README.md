@@ -1,208 +1,154 @@
-# Flower Federated Learning Demo
+# Federated Network Attack Detection System
 
-A minimal federated learning demonstration using Flower framework with anomaly detection models.
+An end-to-end reference platform that blends Kafka streaming, federated anomaly detection, differential privacy, FastAPI, PostgreSQL, and a React dashboard to monitor attacks across distributed networks.
 
-## Overview
+## Highlights
 
-This project implements a federated learning setup with:
-- **1 Server**: Using FedAvg (Federated Averaging) strategy
-- **3 Clients**: Each training on their own data partition
-- **2 Anomaly Detectors**:
-  - sklearn IsolationForest
-  - TensorFlow/Keras LSTM Autoencoder
-- **Synthetic Data**: Normal and anomalous samples for testing
-- **Comprehensive Metrics**: Accuracy, Precision, Recall, F1 Score
-- **Model Persistence**: Save and load trained models
+- **Kafka Backbone** – topics `network_data`, `anomalies`, `attack_classified`, `attack_predicted`, `alerts`, `fl_events`.
+- **Streaming Analytics** – LSTM autoencoder, Isolation Forest, physics/rule engines, threat classifier, and a GNN-style predictor all operate as discrete microservices.
+- **Flower Federated Learning** – server + three DP-enabled clients exchange gradients and publish round metrics to Kafka.
+- **FastAPI + PostgreSQL** – Kafka ingestion, persistence, REST collections, and WebSocket fan-out for real-time UX.
+- **React Dashboard** – Vite-powered UI renders anomaly feeds, classifier verdicts, predictor insights, alerts, and FL health.
+- **Docker Compose** – turnkey orchestration for the full stack (Kafka/ZooKeeper, Postgres, analytics microservices, FL, backend, dashboard).
 
-## Project Structure
+## Repository Layout
 
 ```
-Flower-set-up/
+├── docker-compose.yml                 # full stack orchestrator
+├── docker/python-service.Dockerfile   # base image for Python microservices
+├── docs/ARCHITECTURE.md               # Kafka topics & service responsibilities
+├── run_server.py / run_client.py      # Flower entrypoints (still usable locally)
+├── services/
+│   ├── network_simulator              # network_data producer
+│   ├── anomaly_{lstm,iforest,physics} # anomaly detector microservices
+│   ├── threat_classifier              # aggregates anomalies -> attack_classified
+│   ├── gnn_predictor                  # attack_predicted + alerts
+│   └── fastapi_backend                # FastAPI app + Dockerfile
 ├── src/
-│   ├── server/
-│   │   └── flower_server.py      # Flower server implementation
-│   ├── client/
-│   │   └── flower_client.py      # Flower client implementation
-│   ├── models/
-│   │   ├── isolation_forest_detector.py    # IsolationForest model
-│   │   └── lstm_autoencoder_detector.py    # LSTM Autoencoder model
-│   └── data/
-│       └── data_generation.py    # Synthetic data generation
-├── run_server.py                 # Script to run the server
-├── run_client.py                 # Script to run clients
-├── requirements.txt              # Python dependencies
-└── README.md                     # This file
+│   ├── client / server                # Flower implementations
+│   ├── streaming                      # Kafka utils, event schemas, DP publisher
+│   ├── data / models                  # synthetic data + detectors
+│   └── streaming/services             # service base classes
+└── dashboard/                         # Vite React dashboard
 ```
 
-## Requirements
+## Quick Start
 
-- Python 3.8+
-- Dependencies listed in `requirements.txt`
+1. **Prerequisites**
+   - Docker + Docker Compose
+   - ~8 GB RAM free (TensorFlow + Kafka brokers)
 
-## Installation
+2. **Launch everything**
+   ```bash
+   docker compose up --build
+   ```
 
-1. Clone the repository:
-```bash
-git clone https://github.com/Federated-ICS/Flower-set-up.git
-cd Flower-set-up
-```
+3. **Interact**
+   - Flower server: `localhost:8080`
+   - FastAPI REST: `http://localhost:8000` (`/anomalies`, `/classifications`, `/predictions`, `/alerts`, `/fl-events`)
+   - FastAPI WebSocket: `ws://localhost:8000/ws/events`
+   - React dashboard: `http://localhost:4173`
+   - PostgreSQL: `postgres://postgres:postgres@localhost:5432/attacks`
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+4. **Tear down**
+   ```bash
+   docker compose down
+   ```
 
-## Usage
+## Service Overview
 
-### Running the Federated Learning System
+| Service | Role | Produces | Consumes |
+| --- | --- | --- | --- |
+| `network-simulator` | Emits normalized flows derived from synthetic datasets | `network_data` | – |
+| `anomaly-lstm` | TensorFlow LSTM autoencoder scoring | `anomalies` | `network_data` |
+| `anomaly-iforest` | Isolation Forest detector | `anomalies` | `network_data` |
+| `anomaly-physics` | Deterministic surge/impossible-port rules | `anomalies` | `network_data` |
+| `threat-classifier` | Aggregates anomalies into attack labels | `attack_classified` | `anomalies` |
+| `gnn-predictor` | Heuristic graph predictor + alerting | `attack_predicted`, `alerts` | `attack_classified` |
+| `flower-server` | FedAvg orchestrator + Kafka FL metrics | `fl_events` | Flower RPC |
+| `fl-client-{0,1,2}` | DP-enabled Flower clients | `fl_events` | Flower RPC |
+| `fastapi-backend` | Consumes Kafka, persists to Postgres, exposes REST/WebSocket | – | all Kafka topics |
+| `dashboard` | React UI | – | FastAPI REST/WebSocket |
 
-The federated learning system requires running the server and multiple clients.
+## Flower + Differential Privacy
 
-#### Quick Start: Run Tests
+`src/client/flower_client.py` augments Flower `NumPyClient` with:
 
-First, verify everything works:
-```bash
-python test_setup.py
-```
+- **Gaussian noise** + clipping per weight tensor.
+- **Budget tracking** (epsilon, delta) per client.
+- **Kafka round logging** (role `client`, `node_id`, metrics, DP metadata) via `streaming.fl_events.RoundMetricPublisher`.
 
-This tests all components independently (data generation, models, client creation).
+`src/server/flower_server.py` swaps the default strategy for `KafkaFedAvg`, which publishes aggregated fit/eval metrics each round back to Kafka on `fl_events`.
 
-#### Step 1: Start the Server
+## FastAPI Backend
 
-In a terminal, run:
-```bash
-python run_server.py
-```
+Located in `services/fastapi_backend/app`:
 
-The server will:
-- Listen on `0.0.0.0:8080`
-- Run 5 federated learning rounds
-- Aggregate model updates from all clients
-- Log metrics to `server.log`
+- SQLAlchemy models mirror Kafka payloads.
+- `KafkaIngestor` (aiokafka) persists events and broadcasts updates to any WebSocket listeners.
+- REST collections (latest 50 records) for anomalies, classifications, predictions, alerts, and FL events.
+- WebSocket endpoint `/ws/events` streaming live payloads to the dashboard.
 
-#### Step 2: Start the Clients
+## React Dashboard
 
-Open **three separate terminals** and run each client:
+`dashboard/` uses Vite + React 18:
 
-**Terminal 1 (Client 0):**
-```bash
-python run_client.py --client-id 0 --model-type lstm_autoencoder
-```
+- Polls REST endpoints every 10 seconds for historical views.
+- Subscribes to `/ws/events` for real-time updates.
+- Sections: anomaly table, classifier votes, GNN severity feed, alert strip, FL health cards, live stream log.
 
-**Terminal 2 (Client 1):**
-```bash
-python run_client.py --client-id 1 --model-type lstm_autoencoder
-```
+## Developing Locally
 
-**Terminal 3 (Client 2):**
-```bash
-python run_client.py --client-id 2 --model-type lstm_autoencoder
-```
+- **Python tooling** – install `requirements.txt`, ensure Kafka/Postgres reachable, run Flower scripts directly (`python run_server.py` / `python run_client.py ...`).
+- **FastAPI** – `uvicorn services.fastapi_backend.app.main:app --reload`.
+- **Dashboard** – `cd dashboard && npm install && npm run dev`.
 
-For IsolationForest model, use:
-```bash
-python run_client.py --client-id 0 --model-type isolation_forest
-```
+Env vars such as `KAFKA_BOOTSTRAP_SERVERS`, `DATABASE_URL`, and `VITE_API_BASE_URL` allow you to point components to external infrastructure when not using Docker Compose.
 
-### Quick Test with Simulation
+## References
 
-For a quick local test without network communication, use the simulation script:
+- Architecture deep-dive: `docs/ARCHITECTURE.md`
+- Synthetic data/model utilities: `src/data`, `src/models`
+- Test harness: `python test_setup.py`
 
-```bash
-# Test with LSTM Autoencoder
-python simulate_federated_learning.py --model-type lstm_autoencoder --num-rounds 3
+## Documentation
 
-# Test with IsolationForest
-python simulate_federated_learning.py --model-type isolation_forest --num-rounds 3
-```
+This repository glues several subsystems together; the high-level narrative below helps reason about data flow end to end.
 
-This simulates the complete federated learning process locally without requiring multiple terminals or network setup.
+### Event Contracts
 
-### Command Line Options
+`src/streaming/event_models.py` defines Pydantic-style dataclasses describing every Kafka payload (e.g., `NetworkPacket`, `AnomalyEvent`, `AttackClassification`, `AttackPrediction`, `AlertEvent`, `FLEvent`). All microservices serialize these models to JSON, ensuring schema alignment. `streaming/kafka_config.py` centralizes topic names, while `streaming/kafka_utils.py` offers shared producer/consumer helpers.
 
-**Server options** (in `run_server.py`):
-- Modify `server_address` and `num_rounds` in the script
+### Streaming Services
 
-**Client options:**
-- `--client-id`: Client ID (0, 1, or 2)
-- `--model-type`: Model type (`lstm_autoencoder` or `isolation_forest`)
-- `--server-address`: Server address (default: `localhost:8080`)
+Under `services/` each microservice inherits from `streaming/services/base_service.py` to manage Kafka lifecycle:
 
-## Data Generation
+1. `network_simulator` → publishes synthetic `NetworkPacket`s to `network_data`.
+2. `anomaly_{lstm,iforest,physics}` → consume flows, run model/rule scoring, emit `AnomalyEvent`s.
+3. `threat_classifier` → aggregates anomaly votes per flow and emits `AttackClassification` messages.
+4. `gnn_predictor` → creates GNN-inspired severity forecasts (`AttackPrediction`) and escalates to the `alerts` topic.
 
-The system automatically generates synthetic data:
-- **Normal samples**: Gaussian distribution
-- **Anomalous samples**: Shifted mean and higher variance
-- **Total**: 900 normal + 100 anomalous samples
-- **Split**: Data is divided equally among 3 clients
-- **Train/Test**: 80/20 split per client
+Every service lives in its own folder with a `main.py` entrypoint suitable for Docker.
 
-## Models
+### Federated Learning + Differential Privacy
 
-### 1. IsolationForest Detector
+- `src/server/flower_server.py` swaps default FedAvg with `KafkaFedAvg`, so aggregated fit/eval results get published as `FLEvent`s via `RoundMetricPublisher`.
+- `src/client/flower_client.py` extends `NumPyClient` with DP clipping/noising and per-round Kafka logging (client metrics, epsilon, delta). Clients can be run standalone (`run_client.py`) or via Compose (`fl-client-*` services).
 
-Uses sklearn's IsolationForest algorithm:
-- Unsupervised anomaly detection
-- Based on random forest principle
-- Contamination parameter: 0.1 (10% expected anomalies)
+### Backend Persistence & APIs
 
-### 2. LSTM Autoencoder Detector
+`services/fastapi_backend/app` contains:
 
-Uses TensorFlow/Keras LSTM Autoencoder:
-- Learns to reconstruct normal patterns
-- Anomalies detected by high reconstruction error
-- Architecture: LSTM encoder → latent representation → LSTM decoder
-- Threshold: 95th percentile of reconstruction error on normal data
+- SQLAlchemy models mirroring Kafka events (`models.py`).
+- `KafkaIngestor` consuming topics asynchronously and persisting to Postgres while rebroadcasting updates to WebSocket listeners.
+- REST endpoints for historical queries and `/ws/events` for real-time streaming. Dockerfile + requirements are scoped to this service for lightweight deployments.
 
-## Metrics and Logging
+### Dashboard
 
-Both models log:
-- **Accuracy**: Overall correctness
-- **Precision**: True positives / (True positives + False positives)
-- **Recall**: True positives / (True positives + False negatives)
-- **F1 Score**: Harmonic mean of precision and recall
+`dashboard/` is a Vite React app polling the REST endpoints for historical snapshots and subscribing to the WebSocket for live updates. Components render anomaly tables, classifier verdicts, predictor explanations, alert feeds, FL statistics, and a raw event tail.
 
-Logs are saved to:
-- `server.log`: Server activities and aggregated metrics
-- `client_0.log`, `client_1.log`, `client_2.log`: Individual client logs
+### Orchestration
 
-## Model Persistence
+`docker-compose.yml` bootstraps the entire environment (Kafka/ZooKeeper, Postgres, analytics services, FastAPI backend, Flower server/clients, dashboard). `docker/python-service.Dockerfile` is a base image for all Python microservices so you only maintain one dependency spec (`requirements.txt`). Service-specific Dockerfiles live alongside their code when they diverge (e.g., the FastAPI backend and dashboard).
 
-Trained models are automatically saved to the `models/` directory:
-- IsolationForest: `models/client_<id>_isolation_forest`
-- LSTM Autoencoder: `models/client_<id>_lstm_autoencoder`
-
-Models can be loaded later using the `load_model()` method.
-
-## Federated Learning Process
-
-1. **Initialization**: Server starts and waits for clients
-2. **Client Connection**: 3 clients connect with their local data
-3. **Training Round**:
-   - Server sends current model to all clients
-   - Each client trains on local data
-   - Clients send updates back to server
-   - Server aggregates updates using FedAvg
-4. **Evaluation**: After each round, clients evaluate on local test data
-5. **Repeat**: Process repeats for 5 rounds
-6. **Completion**: Final models saved locally
-
-## Example Output
-
-```
-2025-11-14 15:20:00 - INFO - Starting Federated Learning Server
-2025-11-14 15:20:05 - INFO - Client 0 initialized with 266 training samples
-2025-11-14 15:20:06 - INFO - Training metrics: {'accuracy': 0.92, 'precision': 0.85, 'recall': 0.78, 'f1_score': 0.81}
-2025-11-14 15:20:10 - INFO - Aggregated metrics: {'accuracy': 0.91, 'precision': 0.83, 'recall': 0.79, 'f1_score': 0.80}
-```
-
-## Troubleshooting
-
-1. **Connection Issues**: Ensure server is running before starting clients
-2. **Port Already in Use**: Change the port in server address
-3. **Memory Issues**: Reduce batch size or model complexity
-4. **Import Errors**: Verify all dependencies are installed
-
-## License
-
-This project is for educational and research purposes.
+For a conceptual overview of all pieces—including topic descriptions and service responsibilities—read `docs/ARCHITECTURE.md`.
