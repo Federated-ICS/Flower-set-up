@@ -1,0 +1,179 @@
+version: "3.9"
+
+services:
+  zookeeper:
+    image: bitnami/zookeeper:3.8
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+    restart: unless-stopped
+
+  kafka:
+    image: bitnami/kafka:3.7
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=attacks
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  fastapi-backend:
+    build:
+      context: .
+      dockerfile: services/fastapi_backend/Dockerfile
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/attacks
+    depends_on:
+      - kafka
+      - postgres
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    environment:
+      - VITE_API_BASE_URL=http://fastapi-backend:8000
+    depends_on:
+      - fastapi-backend
+    ports:
+      - "4173:4173"
+    restart: unless-stopped
+
+  flower-server:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "run_server.py"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  fl-client-0:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "run_client.py", "--client-id", "0", "--model-type", "lstm_autoencoder", "--server-address", "flower-server:8080"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - flower-server
+    restart: unless-stopped
+
+  fl-client-1:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "run_client.py", "--client-id", "1", "--model-type", "lstm_autoencoder", "--server-address", "flower-server:8080"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - flower-server
+    restart: unless-stopped
+
+  fl-client-2:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "run_client.py", "--client-id", "2", "--model-type", "isolation_forest", "--server-address", "flower-server:8080"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - flower-server
+    restart: unless-stopped
+
+  network-simulator:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "services/network_simulator/main.py"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+    restart: unless-stopped
+
+  anomaly-lstm:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "services/anomaly_lstm/main.py"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - network-simulator
+    restart: unless-stopped
+
+  anomaly-iforest:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "services/anomaly_iforest/main.py"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - network-simulator
+    restart: unless-stopped
+
+  anomaly-physics:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "services/anomaly_physics/main.py"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - network-simulator
+    restart: unless-stopped
+
+  threat-classifier:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "services/threat_classifier/main.py"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - anomaly-lstm
+      - anomaly-iforest
+      - anomaly-physics
+    restart: unless-stopped
+
+  gnn-predictor:
+    build:
+      context: .
+      dockerfile: docker/python-service.Dockerfile
+    command: ["python", "services/gnn_predictor/main.py"]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - threat-classifier
+    restart: unless-stopped
+
+volumes:
+  pgdata:

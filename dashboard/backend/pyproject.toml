@@ -1,0 +1,95 @@
+[tool.poetry]
+name = "ics-threat-detection-backend"
+version = "1.0.0"
+description = "Federated Network-Based ICS Threat Detection System - Backend API"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.104.1"
+uvicorn = {extras = ["standard"], version = "^0.24.0"}
+python-multipart = "^0.0.6"
+
+# Database
+sqlalchemy = "^2.0.23"
+psycopg2-binary = "^2.9.9"
+alembic = "^1.12.1"
+
+# Redis (Context Buffer)
+redis = "^5.0.1"
+hiredis = "^2.2.3"
+
+# Kafka
+kafka-python = "^2.0.2"
+aiokafka = "^0.10.0"
+
+# Neo4j (MITRE ATT&CK Graph)
+neo4j = "^5.14.1"
+
+# WebSocket
+websockets = "^12.0"
+
+# Data Validation
+pydantic = "^2.5.0"
+pydantic-settings = "^2.1.0"
+
+# Security
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+
+# Environment Variables
+python-dotenv = "^1.0.0"
+
+# Utilities
+python-dateutil = "^2.8.2"
+pytz = "^2023.3"
+asyncpg = "^0.30.0"
+aiosqlite = "^0.21.0"
+py2neo = "^2021.2.4"
+python-socketio = "^5.14.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-asyncio = "^0.21.1"
+httpx = "^0.25.2"
+black = "^23.11.0"
+isort = "^5.12.0"
+flake8 = "^6.1.0"
+mypy = "^1.7.1"
+pytest-cov = "^4.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "app.repositories.*"
+disable_error_code = ["arg-type", "assignment", "attr-defined", "call-overload"]
+
+[[tool.mypy.overrides]]
+module = "app.models.*"
+disable_error_code = ["var-annotated", "assignment", "misc", "attr-defined"]
