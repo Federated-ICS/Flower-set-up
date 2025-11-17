@@ -30,6 +30,8 @@
 
 ## 🚀 Quick Start (5 Minutes)
 
+👋 **New contributor?** Start with the step-by-step runbook in [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) for an end-to-end setup (clone → configure → run → verify).
+
 ```bash
 # 1. Clone and enter repo
 git clone https://github.com/Federated-ICS/Flower-set-up.git
@@ -158,6 +160,7 @@ Parallel FL Loop:
 
 | Document | Purpose |
 |----------|---------|
+| [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) | New-developer runbook (clone → configure → run → verify) |
 | [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | High-level system intro, quick start, features |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kafka topics, service responsibilities, data flows |
 | [`DEMO.md`](DEMO.md) | 5-minute hackathon demo script |

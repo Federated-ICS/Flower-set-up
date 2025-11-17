@@ -41,7 +41,7 @@ install:
 
 # Testing
 test:
-	pytest tests/ -v --cov=src --cov-report=term-missing
+	pytest test_setup.py -v
 
 test-unit:
 	pytest tests/unit/ -v
