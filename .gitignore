@@ -1,4 +1,6 @@
+# ============================================
 # Python
+# ============================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,48 +21,145 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Virtual environments
+# ============================================
+# Virtual Environments
+# ============================================
+.venv/
 venv/
 ENV/
 env/
+.Python
 
-# IDE
+# ============================================
+# IDE & Editors
+# ============================================
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.project
+.pydevproject
+.settings/
 
-# Logs
+# ============================================
+# Logs & Databases
+# ============================================
 *.log
+*.sql
+*.sqlite
+*.db
 
-# Saved model files (not source code)
+# ============================================
+# ML Models & Data
+# ============================================
 /models/
 *.h5
 *.keras
 *.pkl
+*.pickle
 *.npy
+*.npz
+*.pt
+*.pth
+*.onnx
 
-# OS
+# ============================================
+# Operating System
+# ============================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
 
-# Jupyter
+# ============================================
+# Jupyter Notebook
+# ============================================
 .ipynb_checkpoints/
+*.ipynb
 
-# Node / Frontend
+# ============================================
+# Node.js / Frontend
+# ============================================
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+
+# Dashboard specific
 dashboard/node_modules/
 dashboard/dist/
-dashboard/.vite/
-dashboard/backend/node_modules/
-dashboard/frontend/node_modules/
-dashboard/frontend/.next/
-dashboard/frontend/.turbo/
+dashboard/.next/
+dashboard/.turbo/
+dashboard/out/
+dashboard/build/
 
-# Env files
+# ============================================
+# Environment Variables
+# ============================================
 .env
-.env.*
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Local databases / volumes
+# Keep examples
+!.env.example
+
+# ============================================
+# Docker
+# ============================================
+*.pid
+*.seed
+*.pid.lock
+
+# Docker volumes
 pgdata/
+redis_data/
+neo4j_data/
+kafka_data/
+zookeeper_data/
+
+# ============================================
+# Testing
+# ============================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+coverage.xml
+*.cover
+
+# ============================================
+# Build artifacts
+# ============================================
+*.tar.gz
+*.zip
+*.rar
+
+# ============================================
+# Temporary files
+# ============================================
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# ============================================
+# Project specific
+# ============================================
+# Keep these files in version control
+# !important_file.txt
