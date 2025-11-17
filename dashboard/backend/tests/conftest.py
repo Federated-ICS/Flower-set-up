@@ -1,21 +1,19 @@
-"""
-Pytest configuration and fixtures
-"""
+"""Pytest configuration and fixtures."""
 import asyncio
+import os
 from typing import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.database import Base, get_db
 from app.main import app
 
-# Test database URL (PostgreSQL test database)
-TEST_DATABASE_URL = (
-    "postgresql+asyncpg://ics_user:ics_password@localhost:5432/ics_threat_detection_test"
-)
+# Use SQLite by default so tests can run without external services
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 
 
 @pytest.fixture(scope="session")
@@ -27,11 +25,23 @@ def event_loop():
 
 
 # Create a single engine for all tests
+engine_kwargs = {"echo": False, "poolclass": NullPool}
+
+if TEST_DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
-    echo=False,
-    poolclass=NullPool,
+    **engine_kwargs,
 )
+
+
+if TEST_DATABASE_URL.startswith("sqlite"):
+    @event.listens_for(test_engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):  # pragma: no cover
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 @pytest.fixture(scope="function", autouse=True)

@@ -1,154 +1,96 @@
-# Federated Network Attack Detection System
+# Federated Network Attack Detection Platform
 
-An end-to-end reference platform that blends Kafka streaming, federated anomaly detection, differential privacy, FastAPI, PostgreSQL, and a React dashboard to monitor attacks across distributed networks.
+A reference implementation that streams synthetic network traffic through a Kafka backbone, scores it with multiple anomaly/attack detectors, aggregates the results with a FastAPI backend and PostgreSQL, and visualizes everything in a Vite React dashboard. Flower federated learning coordinates three differential-privacy-aware clients, and all services are wired together with Docker Compose for a turn-key demo.
 
-## Highlights
+## What lives in this repo
+- **Streaming microservices** under `services/`: network simulator, anomaly detectors (LSTM, Isolation Forest, physics rules), threat classifier, GNN-inspired predictor, and a FastAPI backend.
+- **Federated learning** code in `src/`: Flower server and clients, Kafka publishing utilities, and supporting data/model helpers.
+- **Dashboard** in `dashboard/`: Vite + React UI for historical queries and live updates.
+- **Orchestration** via `docker-compose.yml` and a shared Python base image in `docker/python-service.Dockerfile`.
+- **Docs and utilities**: architecture notes in `docs/ARCHITECTURE.md`, simulation helpers like `simulate_federated_learning.py`, and ad-hoc setup scripts.
 
-- **Kafka Backbone** – topics `network_data`, `anomalies`, `attack_classified`, `attack_predicted`, `alerts`, `fl_events`.
-- **Streaming Analytics** – LSTM autoencoder, Isolation Forest, physics/rule engines, threat classifier, and a GNN-style predictor all operate as discrete microservices.
-- **Flower Federated Learning** – server + three DP-enabled clients exchange gradients and publish round metrics to Kafka.
-- **FastAPI + PostgreSQL** – Kafka ingestion, persistence, REST collections, and WebSocket fan-out for real-time UX.
-- **React Dashboard** – Vite-powered UI renders anomaly feeds, classifier verdicts, predictor insights, alerts, and FL health.
-- **Docker Compose** – turnkey orchestration for the full stack (Kafka/ZooKeeper, Postgres, analytics microservices, FL, backend, dashboard).
-
-## Repository Layout
-
+## Repository layout (high level)
 ```
-├── docker-compose.yml                 # full stack orchestrator
-├── docker/python-service.Dockerfile   # base image for Python microservices
+├── docker-compose.yml                 # Launches the full stack
+├── docker/python-service.Dockerfile   # Base image for Python microservices
 ├── docs/ARCHITECTURE.md               # Kafka topics & service responsibilities
-├── run_server.py / run_client.py      # Flower entrypoints (still usable locally)
-├── services/
-│   ├── network_simulator              # network_data producer
-│   ├── anomaly_{lstm,iforest,physics} # anomaly detector microservices
-│   ├── threat_classifier              # aggregates anomalies -> attack_classified
-│   ├── gnn_predictor                  # attack_predicted + alerts
-│   └── fastapi_backend                # FastAPI app + Dockerfile
-├── src/
-│   ├── client / server                # Flower implementations
-│   ├── streaming                      # Kafka utils, event schemas, DP publisher
-│   ├── data / models                  # synthetic data + detectors
-│   └── streaming/services             # service base classes
-└── dashboard/                         # Vite React dashboard
+├── services/                          # Streaming microservices + FastAPI backend
+├── src/                               # Flower server/clients, streaming utilities
+├── dashboard/                         # React frontend
+├── run_server.py / run_client.py      # Local Flower entrypoints
+└── simulate_federated_learning.py     # CLI to run FL simulation
 ```
 
-## Quick Start
+## Prerequisites
+- Docker and Docker Compose
+- ~8 GB free RAM for Kafka, PostgreSQL, and TensorFlow-based services
+- For local (non-Docker) development: Python 3.11, Node.js 18+, and access to Kafka/PostgreSQL (or override with env vars)
 
-1. **Prerequisites**
-   - Docker + Docker Compose
-   - ~8 GB RAM free (TensorFlow + Kafka brokers)
-
-2. **Launch everything**
+## Run the full stack with Docker Compose
+1. Build and start everything:
    ```bash
    docker compose up --build
    ```
-
-3. **Interact**
-   - Flower server: `localhost:8080`
-   - FastAPI REST: `http://localhost:8000` (`/anomalies`, `/classifications`, `/predictions`, `/alerts`, `/fl-events`)
+2. Services to expect:
+   - Flower server: `http://localhost:8080`
+   - FastAPI REST: `http://localhost:8000` (collections: `/anomalies`, `/classifications`, `/predictions`, `/alerts`, `/fl-events`)
    - FastAPI WebSocket: `ws://localhost:8000/ws/events`
    - React dashboard: `http://localhost:4173`
    - PostgreSQL: `postgres://postgres:postgres@localhost:5432/attacks`
-
-4. **Tear down**
+3. Stop everything:
    ```bash
    docker compose down
    ```
 
-## Service Overview
+## Developing without Docker
+### Python services (Flower + streaming microservices)
+1. Create a virtualenv and install shared deps:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. Point services to your infrastructure with env vars (or rely on defaults):
+   - `KAFKA_BOOTSTRAP_SERVERS` (e.g., `localhost:29092`)
+   - `DATABASE_URL` (e.g., `postgresql+psycopg2://postgres:postgres@localhost:5432/attacks`)
+3. Run individual services (examples):
+   ```bash
+   python services/network_simulator/main.py
+   python services/anomaly_lstm/main.py
+   python run_server.py                 # Flower server
+   python run_client.py --node-id 0     # Flower client (repeat for 1,2)
+   ```
 
-| Service | Role | Produces | Consumes |
-| --- | --- | --- | --- |
-| `network-simulator` | Emits normalized flows derived from synthetic datasets | `network_data` | – |
-| `anomaly-lstm` | TensorFlow LSTM autoencoder scoring | `anomalies` | `network_data` |
-| `anomaly-iforest` | Isolation Forest detector | `anomalies` | `network_data` |
-| `anomaly-physics` | Deterministic surge/impossible-port rules | `anomalies` | `network_data` |
-| `threat-classifier` | Aggregates anomalies into attack labels | `attack_classified` | `anomalies` |
-| `gnn-predictor` | Heuristic graph predictor + alerting | `attack_predicted`, `alerts` | `attack_classified` |
-| `flower-server` | FedAvg orchestrator + Kafka FL metrics | `fl_events` | Flower RPC |
-| `fl-client-{0,1,2}` | DP-enabled Flower clients | `fl_events` | Flower RPC |
-| `fastapi-backend` | Consumes Kafka, persists to Postgres, exposes REST/WebSocket | – | all Kafka topics |
-| `dashboard` | React UI | – | FastAPI REST/WebSocket |
+### FastAPI backend
+1. Move into the service directory and install its specific requirements if needed (already covered by the root `requirements.txt`):
+   ```bash
+   uvicorn services.fastapi_backend.app.main:app --reload
+   ```
+2. REST and WebSocket endpoints mirror the Compose setup (port 8000 by default). SQLite is used automatically for backend tests; PostgreSQL is expected in production.
 
-## Flower + Differential Privacy
+### React dashboard
+1. Install dependencies and start the dev server:
+   ```bash
+   cd dashboard
+   npm install
+   npm run dev -- --host
+   ```
+2. Override the backend base URL if it is not `http://localhost:8000`:
+   ```bash
+   VITE_API_BASE_URL=http://your-backend:8000 npm run dev -- --host
+   ```
 
-`src/client/flower_client.py` augments Flower `NumPyClient` with:
+## Running tests
+- Backend pytest configuration defaults to a local SQLite database with foreign key enforcement (no Postgres needed for unit tests).
+- Execute the test suite from the repo root (ensure Python deps are installed):
+  ```bash
+  PYENV_VERSION=3.11.12 python -m pytest
+  ```
 
-- **Gaussian noise** + clipping per weight tensor.
-- **Budget tracking** (epsilon, delta) per client.
-- **Kafka round logging** (role `client`, `node_id`, metrics, DP metadata) via `streaming.fl_events.RoundMetricPublisher`.
+## Helpful tips
+- Kafka topic names and data schemas are centralized in `src/streaming`.
+- Each microservice folder under `services/` contains a `main.py` entrypoint suitable for Docker or local runs.
+- `simulate_federated_learning.py` can be used to run a lightweight FL simulation without Kafka/PostgreSQL.
+- For an architecture walkthrough and data-flow diagrams, see `docs/ARCHITECTURE.md`.
 
-`src/server/flower_server.py` swaps the default strategy for `KafkaFedAvg`, which publishes aggregated fit/eval metrics each round back to Kafka on `fl_events`.
-
-## FastAPI Backend
-
-Located in `services/fastapi_backend/app`:
-
-- SQLAlchemy models mirror Kafka payloads.
-- `KafkaIngestor` (aiokafka) persists events and broadcasts updates to any WebSocket listeners.
-- REST collections (latest 50 records) for anomalies, classifications, predictions, alerts, and FL events.
-- WebSocket endpoint `/ws/events` streaming live payloads to the dashboard.
-
-## React Dashboard
-
-`dashboard/` uses Vite + React 18:
-
-- Polls REST endpoints every 10 seconds for historical views.
-- Subscribes to `/ws/events` for real-time updates.
-- Sections: anomaly table, classifier votes, GNN severity feed, alert strip, FL health cards, live stream log.
-
-## Developing Locally
-
-- **Python tooling** – install `requirements.txt`, ensure Kafka/Postgres reachable, run Flower scripts directly (`python run_server.py` / `python run_client.py ...`).
-- **FastAPI** – `uvicorn services.fastapi_backend.app.main:app --reload`.
-- **Dashboard** – `cd dashboard && npm install && npm run dev`.
-
-Env vars such as `KAFKA_BOOTSTRAP_SERVERS`, `DATABASE_URL`, and `VITE_API_BASE_URL` allow you to point components to external infrastructure when not using Docker Compose.
-
-## References
-
-- Architecture deep-dive: `docs/ARCHITECTURE.md`
-- Synthetic data/model utilities: `src/data`, `src/models`
-- Test harness: `python test_setup.py`
-
-## Documentation
-
-This repository glues several subsystems together; the high-level narrative below helps reason about data flow end to end.
-
-### Event Contracts
-
-`src/streaming/event_models.py` defines Pydantic-style dataclasses describing every Kafka payload (e.g., `NetworkPacket`, `AnomalyEvent`, `AttackClassification`, `AttackPrediction`, `AlertEvent`, `FLEvent`). All microservices serialize these models to JSON, ensuring schema alignment. `streaming/kafka_config.py` centralizes topic names, while `streaming/kafka_utils.py` offers shared producer/consumer helpers.
-
-### Streaming Services
-
-Under `services/` each microservice inherits from `streaming/services/base_service.py` to manage Kafka lifecycle:
-
-1. `network_simulator` → publishes synthetic `NetworkPacket`s to `network_data`.
-2. `anomaly_{lstm,iforest,physics}` → consume flows, run model/rule scoring, emit `AnomalyEvent`s.
-3. `threat_classifier` → aggregates anomaly votes per flow and emits `AttackClassification` messages.
-4. `gnn_predictor` → creates GNN-inspired severity forecasts (`AttackPrediction`) and escalates to the `alerts` topic.
-
-Every service lives in its own folder with a `main.py` entrypoint suitable for Docker.
-
-### Federated Learning + Differential Privacy
-
-- `src/server/flower_server.py` swaps default FedAvg with `KafkaFedAvg`, so aggregated fit/eval results get published as `FLEvent`s via `RoundMetricPublisher`.
-- `src/client/flower_client.py` extends `NumPyClient` with DP clipping/noising and per-round Kafka logging (client metrics, epsilon, delta). Clients can be run standalone (`run_client.py`) or via Compose (`fl-client-*` services).
-
-### Backend Persistence & APIs
-
-`services/fastapi_backend/app` contains:
-
-- SQLAlchemy models mirroring Kafka events (`models.py`).
-- `KafkaIngestor` consuming topics asynchronously and persisting to Postgres while rebroadcasting updates to WebSocket listeners.
-- REST endpoints for historical queries and `/ws/events` for real-time streaming. Dockerfile + requirements are scoped to this service for lightweight deployments.
-
-### Dashboard
-
-`dashboard/` is a Vite React app polling the REST endpoints for historical snapshots and subscribing to the WebSocket for live updates. Components render anomaly tables, classifier verdicts, predictor explanations, alert feeds, FL statistics, and a raw event tail.
-
-### Orchestration
-
-`docker-compose.yml` bootstraps the entire environment (Kafka/ZooKeeper, Postgres, analytics services, FastAPI backend, Flower server/clients, dashboard). `docker/python-service.Dockerfile` is a base image for all Python microservices so you only maintain one dependency spec (`requirements.txt`). Service-specific Dockerfiles live alongside their code when they diverge (e.g., the FastAPI backend and dashboard).
-
-For a conceptual overview of all pieces—including topic descriptions and service responsibilities—read `docs/ARCHITECTURE.md`.
+Happy hacking!
