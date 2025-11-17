@@ -59,7 +59,7 @@ class AttackClassification(EventBase):
 @dataclass
 class AttackPrediction(EventBase):
     event_type: str = "attack_prediction"
-    predictor: str = "gnn_predictor"
+    predictor: str = "severity_predictor"
     flow_id: str = ""
     severity: float = 0.0
     impacted_nodes: List[str] = field(default_factory=list)

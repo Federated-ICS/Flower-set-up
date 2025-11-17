@@ -246,7 +246,7 @@ python services/anomaly_lstm/main.py
 python services/anomaly_iforest/main.py
 python services/anomaly_physics/main.py
 python services/threat_classifier/main.py
-python services/gnn_predictor/main.py
+python services/severity_predictor/main.py
 
 # 5. Run Flower server + clients
 python run_server.py
@@ -292,7 +292,7 @@ Flower-set-up/
 │   ├── anomaly_iforest/          # Isolation Forest service
 │   ├── anomaly_physics/          # Rule-based detector
 │   ├── threat_classifier/        # Attack labeler
-│   ├── gnn_predictor/            # Severity forecaster
+│   ├── severity_predictor/       # Severity forecaster (weighted scoring)
 │   └── fastapi_backend/          # REST + WebSocket API
 │
 ├── dashboard/                    # Frontend + backend UI

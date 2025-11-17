@@ -1,0 +1,102 @@
+version: "3.9"
+
+# Development overrides for docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # Kafka with localhost accessibility
+  kafka:
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+
+  # Backend with hot reload
+  fastapi-backend:
+    volumes:
+      - ./services/backend:/app
+    command: ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+
+  # Dashboard with hot reload
+  dashboard:
+    volumes:
+      - ./dashboard:/app
+      - /app/node_modules
+      - /app/.next
+    command: ["pnpm", "dev"]
+    environment:
+      - NODE_ENV=development
+
+  # Python services with code mounted for hot reload
+  flower-server:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  fl-client-0:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  fl-client-1:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  fl-client-2:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  network-simulator:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  anomaly-lstm:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  anomaly-iforest:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  anomaly-physics:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  threat-classifier:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+
+  severity-predictor:
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG

@@ -18,13 +18,13 @@ from streaming.kafka_utils import build_producer
 from streaming.services.base_service import StreamingService
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("gnn-predictor")
+logger = logging.getLogger("severity-predictor")
 
 
 class GNNPredictorService(StreamingService):
     def __init__(self):
         super().__init__(
-            service_name="gnn_predictor",
+            service_name="severity_predictor",
             input_topics=[DEFAULT_TOPICS["attack_classified"]],
             output_topic=DEFAULT_TOPICS["attack_predicted"],
         )
@@ -52,7 +52,7 @@ class GNNPredictorService(StreamingService):
             explanation=explanation,
         ).to_dict()
         self.emit(prediction)
-        logger.debug("GNN predictor emitted %s", prediction)
+        logger.debug("Severity predictor emitted %s", prediction)
 
         if severity > 0.65:
             alert = AlertEvent(
@@ -60,7 +60,7 @@ class GNNPredictorService(StreamingService):
                 title="High severity attack forecast",
                 severity="high" if severity > 0.8 else "medium",
                 summary=f"GNN forecast severity {severity:.2f} ({payload.get('label', 'unknown')})",
-                source="gnn_predictor",
+                source="severity_predictor",
                 payload={"probabilities": str(probs)},
             ).to_dict()
             self.alert_producer.send(self.alert_topic, alert)

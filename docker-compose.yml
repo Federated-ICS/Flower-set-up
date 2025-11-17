@@ -4,8 +4,8 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.3
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT:-2181}
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME:-2000}
     ports:
       - "2181:2181"
     restart: unless-stopped
@@ -31,25 +31,53 @@ services:
   postgres:
     image: postgres:15
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=attacks
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-ics_threat_detection}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.14
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-neo4j_password}
+      - NEO4J_PLUGINS=["apoc"]
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+
   fastapi-backend:
     build:
       context: .
-      dockerfile: services/fastapi_backend/Dockerfile
+      dockerfile: services/backend/Dockerfile
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/attacks
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - DEMO_MODE=${DEMO_MODE:-true}
     depends_on:
       - kafka
       - postgres
+      - redis
+      - neo4j
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -59,7 +87,7 @@ services:
       context: .
       dockerfile: dashboard/Dockerfile
     environment:
-      - NEXT_PUBLIC_API_URL=http://fastapi-backend:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://fastapi-backend:8000}
     depends_on:
       - fastapi-backend
     ports:
@@ -169,11 +197,11 @@ services:
       - anomaly-physics
     restart: unless-stopped
 
-  gnn-predictor:
+  severity-predictor:
     build:
       context: .
       dockerfile: docker/python-service.Dockerfile
-    command: ["python", "services/gnn_predictor/main.py"]
+    command: ["python", "services/severity_predictor/main.py"]
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
@@ -182,3 +210,5 @@ services:
 
 volumes:
   pgdata:
+  redis_data:
+  neo4j_data:

@@ -40,7 +40,7 @@ The platform:
          │
          ▼
 ┌─────────────────┐
-│ GNN Predictor   │──► attack_predicted + alerts
+│ Severity Predictor │──► attack_predicted + alerts
 └─────────────────┘
          │
          ▼
@@ -112,7 +112,7 @@ Flower-set-up/
 │   ├── anomaly_iforest/          # Isolation Forest service
 │   ├── anomaly_physics/          # Rule-based detector
 │   ├── threat_classifier/        # Attack labeler
-│   ├── gnn_predictor/            # Severity forecaster
+│   ├── severity_predictor/       # Severity forecaster (weighted scoring)
 │   └── fastapi_backend/          # REST + WebSocket API
 │
 ├── dashboard/                    # Frontend + backend UI
@@ -219,7 +219,7 @@ See `.env.example` for full list.
 - ✅ All microservices containerized
 - ⚠️ **Duplicate dashboard implementations** (Vite in root + Next.js in `dashboard/frontend/`)
 - ⚠️ **Duplicate FastAPI backends** (`services/fastapi_backend/` + `dashboard/backend/`)
-- ⚠️ GNN predictor doesn't use actual GNNs (just weighted scoring)
+- ⚠️ Severity predictor uses weighted scoring, not actual Graph Neural Networks
 - ⚠️ No authentication/authorization
 - ⚠️ Secrets hardcoded in `docker-compose.yml`
 - ⚠️ No CI/CD pipelines
