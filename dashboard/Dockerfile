@@ -1,10 +1,16 @@
 FROM node:20-alpine
 
 WORKDIR /app
-COPY dashboard/package.json dashboard/vite.config.js dashboard/index.html ./
-COPY dashboard/src ./src
-RUN npm install
-RUN npm run build
 
-EXPOSE 4173
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
+# Copy package files
+COPY dashboard/package.json dashboard/pnpm-lock.yaml* ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
+
+# Copy Next.js app files
+COPY dashboard/ ./
+
+# Build Next.js app
+RUN pnpm run build
+
+EXPOSE 3000
+CMD ["pnpm", "start"]

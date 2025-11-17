@@ -1,13 +1,112 @@
-# Federated Network Attack Detection Platform
+# 🛡️ FedICS — Federated Intrusion Detection for Critical Systems
 
-A reference implementation that streams synthetic network traffic through a Kafka backbone, scores it with multiple anomaly/attack detectors, aggregates the results with a FastAPI backend and PostgreSQL, and visualizes everything in a Vite React dashboard. Flower federated learning coordinates three differential-privacy-aware clients, and all services are wired together with Docker Compose for a turn-key demo.
+> **A streaming-first, privacy-preserving network attack detection platform combining federated learning, Kafka event processing, and real-time threat intelligence.**
 
-## What lives in this repo
-- **Streaming microservices** under `services/`: network simulator, anomaly detectors (LSTM, Isolation Forest, physics rules), threat classifier, GNN-inspired predictor, and a FastAPI backend.
-- **Federated learning** code in `src/`: Flower server and clients, Kafka publishing utilities, and supporting data/model helpers.
-- **Dashboard** in `dashboard/`: Vite + React UI for historical queries and live updates.
-- **Orchestration** via `docker-compose.yml` and a shared Python base image in `docker/python-service.Dockerfile`.
-- **Docs and utilities**: architecture notes in `docs/ARCHITECTURE.md`, simulation helpers like `simulate_federated_learning.py`, and ad-hoc setup scripts.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-research%20prototype-yellow.svg)]()
+
+---
+
+## 🎯 What This System Does
+
+**FedICS** (Federated ICS Security) demonstrates how industrial control systems (ICS) and critical infrastructure can **detect, classify, and predict network attacks** while keeping sensitive operational data private through **federated learning**.
+
+**The platform**:
+- 🔍 Detects anomalies using **3 detection engines** (LSTM Autoencoder, Isolation Forest, Physics Rules)
+- 🏷️ Classifies threats automatically (benign, probe, DoS)
+- 🧠 Predicts attack severity and next-hop using graph-based reasoning
+- 🌐 Streams events through **Apache Kafka** for real-time processing
+- 🔒 Trains ML models **without centralizing data** via Flower federated learning
+- 🎯 Provides differential privacy guarantees (ε-δ accounting)
+- 📊 Visualizes everything in a live dashboard (WebSocket + REST API)
+
+**Use Cases**: Security Operations Centers (SOCs), distributed ICS/SCADA networks, privacy-sensitive multi-party ML, threat intelligence sharing.
+
+---
+
+## 🚀 Quick Start (5 Minutes)
+
+```bash
+# 1. Clone and enter repo
+git clone https://github.com/Federated-ICS/Flower-set-up.git
+cd Flower-set-up
+
+# 2. Copy environment template
+cp .env.example .env
+
+# 3. Start the full stack
+docker compose up --build
+
+# 4. Access services:
+# - Dashboard: http://localhost:3000
+# - API Docs: http://localhost:8000/docs
+# - Flower Server: http://localhost:8080
+```
+
+**What happens:**
+1. Network simulator generates synthetic ICS traffic → Kafka
+2. 3 anomaly detectors score flows independently → Kafka
+3. Threat classifier aggregates votes → attack labels
+4. Severity predictor forecasts impact → alerts
+5. FastAPI backend persists events → PostgreSQL
+6. Dashboard renders live alerts + FL health metrics
+
+---
+
+## 📊 System Architecture (30-Second Version)
+
+```
+┌─────────────────┐
+│ Network Sim     │──► network_data (Kafka topic)
+└─────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│ LSTM │ IForest │ Physics Rules          │──► anomalies
+└─────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Threat Classify │──► attack_classified
+└─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Severity Predict│──► attack_predicted + alerts
+└─────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│ FastAPI Backend         │──► PostgreSQL + WebSocket
+└─────────────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│ React Dashboard │  (Live threat feed)
+└─────────────────┘
+
+Parallel FL Loop:
+┌──────────────┐      ┌─────────────┐
+│ Flower Server│◄────►│ 3 DP Clients│──► fl_events (Kafka)
+└──────────────┘      └─────────────┘
+```
+
+**For deeper architecture details**: See [`docs/ARCHITECTURE_DEEP_DIVE.md`](docs/ARCHITECTURE_DEEP_DIVE.md)
+
+---
+
+## 📁 What Lives in This Repo
+
+| Directory | Purpose |
+|-----------|---------|
+| `src/` | Core federated learning code (Flower server/clients, models, data utils, Kafka streaming) |
+| `services/` | Kafka microservices (simulator, detectors, classifier, predictor, backend API) |
+| `dashboard/` | React/Next.js UI + FastAPI backend for visualization |
+| `docker/` | Shared Dockerfiles for Python services |
+| `docs/` | Architecture deep dives, cleanup plans, deployment guides |
+| Root scripts | `run_server.py`, `run_client.py`, `simulate_federated_learning.py` |
 
 ## Repository layout (high level)
 ```
@@ -21,45 +120,88 @@ A reference implementation that streams synthetic network traffic through a Kafk
 └── simulate_federated_learning.py     # CLI to run FL simulation
 ```
 
-## Architecture overview
+---
 
-### Streaming data plane
-| Topic | Producers | Consumers | Purpose |
-| --- | --- | --- | --- |
-| `network_data` | `services/network_simulator` | `services/anomaly_*` | Normalized flow telemetry (10-D feature vector + metadata) |
-| `anomalies` | `services/anomaly_lstm`, `services/anomaly_iforest`, `services/anomaly_physics` | `services/threat_classifier`, FastAPI backend | Detector scores + decision context |
-| `attack_classified` | `services/threat_classifier` | `services/gnn_predictor`, FastAPI backend | Attack-type probabilities + supporting detectors |
-| `attack_predicted` | `services/gnn_predictor` | FastAPI backend | GNN-style severity/next-hop forecasts |
-| `alerts` | `services/gnn_predictor`, FastAPI backend | Dashboard, downstream SOAR hooks | Human-readable alert summaries |
-| `fl_events` | Flower server & clients | FastAPI backend, dashboard | Round metrics, DP budgets, client health |
+## 🔑 Key Features
 
-Kafka bootstrap defaults to `kafka:9092` but can be overridden via `KAFKA_BOOTSTRAP_SERVERS`. Payload schemas live in `src/streaming/event_models.py` so every service shares the same contract.
+### ✅ Multi-Model Anomaly Detection
+- **LSTM Autoencoder**: Temporal behavior analysis (60-timestep windows)
+- **Isolation Forest**: Point anomaly detection (tree-based, unsupervised)
+- **Physics Rules**: Deterministic safety checks (surge detection, impossible ports)
 
-### Detection & analytics services (`services/`)
-- `network_simulator`: wraps `src/data/data_generation.py` to stream synthetic traffic into `network_data`.
-- `anomaly_lstm`: packages `LSTMAutoencoderDetector` for real-time scoring with reconstruction-error thresholds.
-- `anomaly_iforest`: boots an `IsolationForestDetector`, exposes decision scores, and emits JSON anomaly events.
-- `anomaly_physics`: deterministic safety/physics rules (payload surge, impossible ports) to provide fast guards.
-- `threat_classifier`: aggregates anomaly votes per flow and labels attacks (benign/probe/DoS) before handing off.
-- `gnn_predictor`: ingests classifier outputs, approximates a graph attention model, and raises high-severity alerts.
+### ✅ Federated Learning with Differential Privacy
+- **Flower framework** with FedAvg strategy
+- **3 distributed clients** (simulate different facilities/sites)
+- **Gradient clipping + Gaussian noise** for (ε,δ)-DP guarantees
+- **Epsilon tracking** published to Kafka for audit trails
 
-### Federated learning loop (`src/` + root scripts)
-- `run_server.py` spins up the Flower server (`src/server/flower_server.py`) with FedAvg + Kafka metric publishing.
-- `run_client.py` instantiates `AnomalyDetectorClient` (Isolation Forest or LSTM) per site, adds optional DP noise, and can run standalone or as `docker-compose` services `fl-client-0/1/2`.
-- `simulate_federated_learning.py` lets you dry-run client/server logic without Kafka, useful for CI smoke tests.
-- All Flower entities publish progress via `RoundMetricPublisher` into the `fl_events` topic so the backend/dashboard can track accuracy, loss, epsilon, etc.
+### ✅ Real-Time Streaming Pipeline
+- **Apache Kafka** backbone with 6 topics:
+  - `network_data`: Raw flow telemetry
+  - `anomalies`: Detector outputs (scores + context)
+  - `attack_classified`: Threat labels (benign/probe/DoS)
+  - `attack_predicted`: Severity forecasts
+  - `alerts`: High-priority notifications
+  - `fl_events`: FL round metrics (accuracy, loss, DP budgets)
+- **Event schemas** centralized in `src/streaming/event_models.py`
 
-### API + persistence + dashboard
-- `services/fastapi_backend`: FastAPI app with Kafka consumers, PostgreSQL persistence (`postgres://postgres:postgres@postgres:5432/attacks`), REST routes, and WebSocket fan-out.
-- `dashboard/`: Vite + React UI consuming REST for history and `ws://.../ws/events` for live updates (anomalies, classifications, predictions, FL rounds).
-- Database migrations/DDL live alongside the backend service; default Docker stack provisions Postgres storage via the `pgdata` volume.
+### ✅ Production-Ready API & Dashboard
+- **FastAPI backend**: REST + WebSocket (live event push)
+- **PostgreSQL persistence**: Alerts, classifications, predictions, FL metrics
+- **React/Next.js dashboard**: Real-time threat feed, FL health, attack timelines
 
-### Orchestration & operations
-- `docker-compose.yml` starts the complete topology: Zookeeper/Kafka, Postgres, Flower server + clients, simulators, detectors, classifier, predictor, FastAPI backend, and dashboard.
-- `docker/python-service.Dockerfile` is the shared base image (Python 3.10 + repo requirements) used by every Python service, guaranteeing consistent dependencies.
-- Environment overrides (`KAFKA_BOOTSTRAP_SERVERS`, `DATABASE_URL`, `SERVER_ADDRESS`, etc.) can be applied per container via Compose or `.env` files.
+---
 
-For deeper diagrams and future-state notes (Neo4j, IoTDB, etc.), refer to `docs/ARCHITECTURE.md`.
+## 📚 Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | High-level system intro, quick start, features |
+| [`docs/ARCHITECTURE_DEEP_DIVE.md`](docs/ARCHITECTURE_DEEP_DIVE.md) | Component inventory, data flows, event schemas |
+| [`docs/CLEANUP_PLAN.md`](docs/CLEANUP_PLAN.md) | Identified issues, recommended refactors, roadmap |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kafka topics, service responsibilities |
+
+---
+
+## ⚙️ Configuration
+
+All services read from environment variables. **Copy `.env.example` → `.env`** and customize:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `KAFKA_BOOTSTRAP_SERVERS` | `kafka:9092` | Kafka broker address |
+| `DATABASE_URL` | `postgresql+asyncpg://...` | PostgreSQL connection string |
+| `FLOWER_SERVER_ADDRESS` | `flower-server:8080` | Federated learning server endpoint |
+| `FL_NUM_ROUNDS` | `5` | Number of FL training rounds |
+| `VITE_API_BASE_URL` | `http://localhost:8000` | Dashboard → Backend URL |
+
+See [`.env.example`](.env.example) for the full list with documentation.
+
+---
+
+## 🚧 Known Issues & Limitations
+
+### Current State
+- ✅ Core FL + streaming pipeline functional
+- ✅ All microservices containerized
+- ⚠️ **Duplicate dashboard implementations** (Vite root + Next.js in `dashboard/frontend/`)
+- ⚠️ **Duplicate FastAPI backends** (`services/fastapi_backend/` + `dashboard/backend/`)
+- ⚠️ Severity predictor doesn't use actual GNNs (just weighted scoring)
+- ⚠️ No authentication/authorization
+- ⚠️ Secrets hardcoded in `docker-compose.yml`
+- ❌ Neo4j & IoTDB integrations incomplete
+- ❌ No CI/CD pipelines
+
+### Recommended Cleanup Actions
+1. **Consolidate dashboards** → Choose Vite OR Next.js (recommend Next.js)
+2. **Consolidate backends** → Merge into single FastAPI app
+3. **Add authentication** → JWT tokens, API keys
+4. **Externalize secrets** → Use `.env`, Docker secrets, or Vault
+5. **Add integration tests** → End-to-end pipeline validation
+
+See [`docs/CLEANUP_PLAN.md`](docs/CLEANUP_PLAN.md) for detailed 4-week roadmap.
+
+---
 
 ## Prerequisites
 - Docker and Docker Compose
@@ -82,55 +224,144 @@ For deeper diagrams and future-state notes (Neo4j, IoTDB, etc.), refer to `docs/
    docker compose down
    ```
 
-## Developing without Docker
-### Python services (Flower + streaming microservices)
-1. Create a virtualenv and install shared deps:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-2. Point services to your infrastructure with env vars (or rely on defaults):
-   - `KAFKA_BOOTSTRAP_SERVERS` (e.g., `localhost:29092`)
-   - `DATABASE_URL` (e.g., `postgresql+psycopg2://postgres:postgres@localhost:5432/attacks`)
-3. Run individual services (examples):
-   ```bash
-   python services/network_simulator/main.py
-   python services/anomaly_lstm/main.py
-   python run_server.py                 # Flower server
-   python run_client.py --node-id 0     # Flower client (repeat for 1,2)
-   ```
+## 💻 Development Workflow
 
-### FastAPI backend
-1. Move into the service directory and install its specific requirements if needed (already covered by the root `requirements.txt`):
-   ```bash
-   uvicorn services.fastapi_backend.app.main:app --reload
-   ```
-2. REST and WebSocket endpoints mirror the Compose setup (port 8000 by default). SQLite is used automatically for backend tests; PostgreSQL is expected in production.
+### Run Locally (Without Docker)
 
-### React dashboard
-1. Install dependencies and start the dev server:
-   ```bash
-   cd dashboard
-   npm install
-   npm run dev -- --host
-   ```
-2. Override the backend base URL if it is not `http://localhost:8000`:
-   ```bash
-   VITE_API_BASE_URL=http://your-backend:8000 npm run dev -- --host
-   ```
+```bash
+# 1. Create virtualenv
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 
-## Running tests
-- Backend pytest configuration defaults to a local SQLite database with foreign key enforcement (no Postgres needed for unit tests).
-- Execute the test suite from the repo root (ensure Python deps are installed):
-  ```bash
-  PYENV_VERSION=3.11.12 python -m pytest
-  ```
+# 2. Start infrastructure only (Kafka + Postgres)
+docker compose up kafka postgres -d
 
-## Helpful tips
-- Kafka topic names and data schemas are centralized in `src/streaming`.
-- Each microservice folder under `services/` contains a `main.py` entrypoint suitable for Docker or local runs.
-- `simulate_federated_learning.py` can be used to run a lightweight FL simulation without Kafka/PostgreSQL.
-- For an architecture walkthrough and data-flow diagrams, see `docs/ARCHITECTURE.md`.
+# 3. Override Kafka address for local services
+export KAFKA_BOOTSTRAP_SERVERS=localhost:9092  # Windows: $env:KAFKA_BOOTSTRAP_SERVERS="localhost:9092"
 
-Happy hacking!
+# 4. Run services individually
+python services/network_simulator/main.py
+python services/anomaly_lstm/main.py
+python services/anomaly_iforest/main.py
+python services/anomaly_physics/main.py
+python services/threat_classifier/main.py
+python services/gnn_predictor/main.py
+
+# 5. Run Flower server + clients
+python run_server.py
+python run_client.py --client-id 0 --model-type lstm_autoencoder
+python run_client.py --client-id 1 --model-type lstm_autoencoder
+python run_client.py --client-id 2 --model-type isolation_forest
+```
+
+### Run FL Simulation (No Kafka Required)
+
+```bash
+# Simulate full FL workflow locally
+python simulate_federated_learning.py --model-type lstm_autoencoder --num-rounds 3
+```
+
+### Run Tests
+
+```bash
+# Unit tests
+pytest test_setup.py
+
+# Backend API tests (if using dashboard/backend)
+cd dashboard/backend
+pytest
+```
+
+---
+
+## 🏗️ Repository Structure
+
+```
+Flower-set-up/
+├── src/                          # Core federated learning code
+│   ├── server/                   # Flower server (FedAvg aggregation)
+│   ├── client/                   # Flower clients (DP-enabled)
+│   ├── models/                   # LSTM Autoencoder, Isolation Forest
+│   ├── data/                     # Synthetic data generation
+│   └── streaming/                # Kafka utilities, event schemas
+│
+├── services/                     # Kafka microservices
+│   ├── network_simulator/        # Traffic generator
+│   ├── anomaly_lstm/             # LSTM detector service
+│   ├── anomaly_iforest/          # Isolation Forest service
+│   ├── anomaly_physics/          # Rule-based detector
+│   ├── threat_classifier/        # Attack labeler
+│   ├── gnn_predictor/            # Severity forecaster
+│   └── fastapi_backend/          # REST + WebSocket API
+│
+├── dashboard/                    # Frontend + backend UI
+│   ├── src/                      # Vite + React (simple version)
+│   ├── frontend/                 # Next.js (production version)
+│   └── backend/                  # Alternative FastAPI backend
+│
+├── docker/                       # Shared Dockerfile for Python services
+├── docs/                         # Architecture, cleanup plans, guides
+│
+├── run_server.py                 # Local Flower server entrypoint
+├── run_client.py                 # Local Flower client entrypoint
+├── simulate_federated_learning.py # FL simulation (no Kafka needed)
+├── test_setup.py                 # Basic component tests
+│
+├── docker-compose.yml            # Full stack orchestration
+├── .env.example                  # Configuration template
+├── requirements.txt              # Python dependencies
+└── README.md                     # This file
+```
+
+---
+
+## 🤝 Contributing
+
+This is a research prototype. Contributions welcome for:
+- Real ICS/SCADA dataset integration (CICIDS, NSL-KDD, Modbus captures)
+- Improved threat classification models
+- Actual GNN-based prediction (replace mock predictor)
+- Security hardening (TLS, authentication, authorization)
+- Performance optimization
+- Integration tests
+
+---
+
+## 📄 License
+
+[Specify your license here - MIT, Apache 2.0, etc.]
+
+---
+
+## 🙏 Acknowledgments
+
+Built with:
+- [Flower](https://flower.dev/) - Federated Learning Framework
+- [Apache Kafka](https://kafka.apache.org/) - Event Streaming Platform
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python API Framework
+- [TensorFlow](https://www.tensorflow.org/) - Deep Learning
+- [scikit-learn](https://scikit-learn.org/) - Machine Learning Library
+- [React](https://react.dev/) / [Next.js](https://nextjs.org/) - Frontend Frameworks
+
+---
+
+## 📖 Citation
+
+If you use this in research, please cite:
+
+```bibtex
+@misc{fedics2025,
+  title={FedICS: Federated Intrusion Detection for Critical Systems},
+  author={[Your Name]},
+  year={2025},
+  howpublished={\url{https://github.com/Federated-ICS/Flower-set-up}}
+}
+```
+
+---
+
+**Project Status**: 🚧 Active Development | **Maturity**: Research Prototype  
+**Last Updated**: November 2025
+
+**Questions?** Open an issue or check [`docs/`](docs/) for detailed guides.

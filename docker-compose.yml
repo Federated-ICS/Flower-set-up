@@ -59,11 +59,11 @@ services:
       context: .
       dockerfile: dashboard/Dockerfile
     environment:
-      - VITE_API_BASE_URL=http://fastapi-backend:8000
+      - NEXT_PUBLIC_API_URL=http://fastapi-backend:8000
     depends_on:
       - fastapi-backend
     ports:
-      - "4173:4173"
+      - "3000:3000"
     restart: unless-stopped
 
   flower-server:
