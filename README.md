@@ -21,6 +21,46 @@ A reference implementation that streams synthetic network traffic through a Kafk
 └── simulate_federated_learning.py     # CLI to run FL simulation
 ```
 
+## Architecture overview
+
+### Streaming data plane
+| Topic | Producers | Consumers | Purpose |
+| --- | --- | --- | --- |
+| `network_data` | `services/network_simulator` | `services/anomaly_*` | Normalized flow telemetry (10-D feature vector + metadata) |
+| `anomalies` | `services/anomaly_lstm`, `services/anomaly_iforest`, `services/anomaly_physics` | `services/threat_classifier`, FastAPI backend | Detector scores + decision context |
+| `attack_classified` | `services/threat_classifier` | `services/gnn_predictor`, FastAPI backend | Attack-type probabilities + supporting detectors |
+| `attack_predicted` | `services/gnn_predictor` | FastAPI backend | GNN-style severity/next-hop forecasts |
+| `alerts` | `services/gnn_predictor`, FastAPI backend | Dashboard, downstream SOAR hooks | Human-readable alert summaries |
+| `fl_events` | Flower server & clients | FastAPI backend, dashboard | Round metrics, DP budgets, client health |
+
+Kafka bootstrap defaults to `kafka:9092` but can be overridden via `KAFKA_BOOTSTRAP_SERVERS`. Payload schemas live in `src/streaming/event_models.py` so every service shares the same contract.
+
+### Detection & analytics services (`services/`)
+- `network_simulator`: wraps `src/data/data_generation.py` to stream synthetic traffic into `network_data`.
+- `anomaly_lstm`: packages `LSTMAutoencoderDetector` for real-time scoring with reconstruction-error thresholds.
+- `anomaly_iforest`: boots an `IsolationForestDetector`, exposes decision scores, and emits JSON anomaly events.
+- `anomaly_physics`: deterministic safety/physics rules (payload surge, impossible ports) to provide fast guards.
+- `threat_classifier`: aggregates anomaly votes per flow and labels attacks (benign/probe/DoS) before handing off.
+- `gnn_predictor`: ingests classifier outputs, approximates a graph attention model, and raises high-severity alerts.
+
+### Federated learning loop (`src/` + root scripts)
+- `run_server.py` spins up the Flower server (`src/server/flower_server.py`) with FedAvg + Kafka metric publishing.
+- `run_client.py` instantiates `AnomalyDetectorClient` (Isolation Forest or LSTM) per site, adds optional DP noise, and can run standalone or as `docker-compose` services `fl-client-0/1/2`.
+- `simulate_federated_learning.py` lets you dry-run client/server logic without Kafka, useful for CI smoke tests.
+- All Flower entities publish progress via `RoundMetricPublisher` into the `fl_events` topic so the backend/dashboard can track accuracy, loss, epsilon, etc.
+
+### API + persistence + dashboard
+- `services/fastapi_backend`: FastAPI app with Kafka consumers, PostgreSQL persistence (`postgres://postgres:postgres@postgres:5432/attacks`), REST routes, and WebSocket fan-out.
+- `dashboard/`: Vite + React UI consuming REST for history and `ws://.../ws/events` for live updates (anomalies, classifications, predictions, FL rounds).
+- Database migrations/DDL live alongside the backend service; default Docker stack provisions Postgres storage via the `pgdata` volume.
+
+### Orchestration & operations
+- `docker-compose.yml` starts the complete topology: Zookeeper/Kafka, Postgres, Flower server + clients, simulators, detectors, classifier, predictor, FastAPI backend, and dashboard.
+- `docker/python-service.Dockerfile` is the shared base image (Python 3.10 + repo requirements) used by every Python service, guaranteeing consistent dependencies.
+- Environment overrides (`KAFKA_BOOTSTRAP_SERVERS`, `DATABASE_URL`, `SERVER_ADDRESS`, etc.) can be applied per container via Compose or `.env` files.
+
+For deeper diagrams and future-state notes (Neo4j, IoTDB, etc.), refer to `docs/ARCHITECTURE.md`.
+
 ## Prerequisites
 - Docker and Docker Compose
 - ~8 GB free RAM for Kafka, PostgreSQL, and TensorFlow-based services
