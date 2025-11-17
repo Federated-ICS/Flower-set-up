@@ -19,11 +19,8 @@
 # Start all services
 docker compose up -d
 
-# Wait 30 seconds for startup
-Start-Sleep -Seconds 30
-
-# Verify health
-make health
+# Wait 60 seconds for startup
+Start-Sleep -Seconds 60
 
 # Check dashboard
 # Open browser: http://localhost:3000
@@ -275,3 +272,7 @@ If things break:
 ---
 
 **Good luck! 🍀 You've got this! 💪**
+
+---
+
+**IEEE IAS Technical Challenge Phase 2** | November 2025

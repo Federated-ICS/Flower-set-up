@@ -1,6 +1,8 @@
-# OSB Watchtower 🛡️
+# FedICS Dashboard 🛡️
 
-A modern cybersecurity monitoring and threat intelligence dashboard built with Next.js, featuring real-time alert management, federated learning status tracking, and interactive MITRE ATT&CK technique visualization.
+A modern cybersecurity monitoring and threat intelligence dashboard for **FedICS** (Federated Intrusion Detection for Critical Systems), built with Next.js 16, featuring real-time alert management, federated learning status tracking, and interactive MITRE ATT&CK technique visualization.
+
+**Part of IEEE IAS Technical Challenge Phase 2 submission.**
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.0-black?style=flat-square&logo=next.js)
 ![React](https://img.shields.io/badge/React-19.2-blue?style=flat-square&logo=react)
@@ -51,8 +53,8 @@ A modern cybersecurity monitoring and threat intelligence dashboard built with N
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Federated-ICS/webapp.git
-   cd webapp
+   git clone https://github.com/Federated-ICS/Flower-set-up.git
+   cd Flower-set-up/dashboard
    ```
 
 2. **Install dependencies**
@@ -83,7 +85,7 @@ pnpm start
 ## 📁 Project Structure
 
 ```
-cybersentry-watchtower/
+fedics-dashboard/
 ├── app/                      # Next.js App Router
 │   ├── alerts/              # Alert management page
 │   ├── attack-graph/        # Attack visualization page
@@ -124,16 +126,16 @@ cybersentry-watchtower/
 
 ## 📊 Data Sources
 
-The application connects to a backend API for real-time data:
+The dashboard connects to the **FedICS FastAPI backend** for real-time data:
 
-- **Alerts**: Security alerts from multiple detection layers (LSTM, Isolation Forest, Physics Model, System Monitor)
-- **FL Clients**: Federated learning client status and training metrics
+- **Alerts**: Security alerts from multiple detection layers (LSTM, Isolation Forest, Physics Model)
+- **FL Clients**: Federated learning client status and training metrics from 3 facilities
 - **Attack Techniques**: MITRE ATT&CK techniques and predictions
-- **Privacy Metrics**: Differential privacy parameters (epsilon, delta)
+- **Privacy Metrics**: Differential privacy parameters (ε, δ)
 
-### Backend Configuration
+### Backend Configuration (FedICS)
 
-Set the backend API URL in your environment:
+The FedICS backend runs on port 8000 by default. Configure environment variables:
 
 ```bash
 # .env.local
@@ -206,4 +208,6 @@ For questions or support, please open an issue on GitHub.
 
 ---
 
-**Built with ❤️ for cybersecurity professionals**
+**Built for IEEE IAS Technical Challenge Phase 2**
+
+**System Control & Cybersecurity** | November 2025

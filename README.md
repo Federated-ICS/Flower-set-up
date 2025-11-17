@@ -1,11 +1,13 @@
 # 🛡️ FedICS — Federated Intrusion Detection for Critical Systems
 
-> **A streaming-first, privacy-preserving network attack detection platform combining federated learning, Kafka event processing, and real-time threat intelligence.**
+> **Privacy-preserving collaborative threat detection for industrial control systems using federated learning.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-research%20prototype-yellow.svg)]()
+[![Status](https://img.shields.io/badge/status-IAS%20Phase%202-brightgreen.svg)]()
+
+🎯 **IEEE IAS Technical Challenge Phase 2 Prototype**
 
 ---
 
@@ -40,9 +42,9 @@ cp .env.example .env
 docker compose up --build
 
 # 4. Access services:
-# - Dashboard: http://localhost:3000
-# - API Docs: http://localhost:8000/docs
-# - Flower Server: http://localhost:8080
+# - Dashboard: http://localhost:3000 (Next.js UI)
+# - API Docs: http://localhost:8000/docs (FastAPI Backend)
+# - Flower Server: http://localhost:8080 (FL Orchestrator)
 ```
 
 **What happens:**
@@ -93,7 +95,7 @@ Parallel FL Loop:
 └──────────────┘      └─────────────┘
 ```
 
-**For deeper architecture details**: See [`docs/ARCHITECTURE_DEEP_DIVE.md`](docs/ARCHITECTURE_DEEP_DIVE.md)
+**For deeper architecture details**: See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md)
 
 ---
 
@@ -157,9 +159,9 @@ Parallel FL Loop:
 | Document | Purpose |
 |----------|---------|
 | [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | High-level system intro, quick start, features |
-| [`docs/ARCHITECTURE_DEEP_DIVE.md`](docs/ARCHITECTURE_DEEP_DIVE.md) | Component inventory, data flows, event schemas |
-| [`docs/CLEANUP_PLAN.md`](docs/CLEANUP_PLAN.md) | Identified issues, recommended refactors, roadmap |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kafka topics, service responsibilities |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kafka topics, service responsibilities, data flows |
+| [`DEMO.md`](DEMO.md) | 5-minute hackathon demo script |
+| [`IAS_TECHNICAL_SUMMARY.md`](IAS_TECHNICAL_SUMMARY.md) | IEEE IAS competition technical summary |
 
 ---
 
@@ -179,27 +181,27 @@ See [`.env.example`](.env.example) for the full list with documentation.
 
 ---
 
-## 🚧 Known Issues & Limitations
+## 🎯 IEEE IAS Competition Scope
 
-### Current State
-- ✅ Core FL + streaming pipeline functional
-- ✅ All microservices containerized
-- ⚠️ **Duplicate dashboard implementations** (Vite root + Next.js in `dashboard/frontend/`)
-- ⚠️ **Duplicate FastAPI backends** (`services/fastapi_backend/` + `dashboard/backend/`)
-- ⚠️ Severity predictor doesn't use actual GNNs (just weighted scoring)
-- ⚠️ No authentication/authorization
-- ⚠️ Secrets hardcoded in `docker-compose.yml`
-- ❌ Neo4j & IoTDB integrations incomplete
-- ❌ No CI/CD pipelines
+**This is a Phase 2 prototype demonstrating core innovation** — privacy-preserving federated learning for industrial cybersecurity.
 
-### Recommended Cleanup Actions
-1. **Consolidate dashboards** → Choose Vite OR Next.js (recommend Next.js)
-2. **Consolidate backends** → Merge into single FastAPI app
-3. **Add authentication** → JWT tokens, API keys
-4. **Externalize secrets** → Use `.env`, Docker secrets, or Vault
-5. **Add integration tests** → End-to-end pipeline validation
+### ✅ What Works
+- Core FL + streaming pipeline fully functional
+- All microservices containerized and orchestrated
+- Next.js dashboard with real-time WebSocket updates
+- FastAPI backend with PostgreSQL, Redis, Neo4j
+- Multi-layer detection (LSTM, Isolation Forest, Physics Rules)
+- Differential privacy tracking (ε=0.5 per round)
 
-See [`docs/CLEANUP_PLAN.md`](docs/CLEANUP_PLAN.md) for detailed 4-week roadmap.
+### 🚧 Production Features (Intentionally Skipped for Demo)
+- Authentication/Authorization (not needed for competition demo)
+- TLS/SSL encryption (HTTP sufficient for local demo)
+- Enterprise monitoring (Prometheus/Grafana)
+- Real ICS datasets (synthetic data demonstrates concept)
+- Actual Graph Neural Networks (weighted scoring placeholder)
+- Byzantine fault tolerance (Phase 3 roadmap)
+
+**Focus**: Core innovation (federated learning for ICS) over production scaffolding.
 
 ---
 
@@ -215,10 +217,10 @@ See [`docs/CLEANUP_PLAN.md`](docs/CLEANUP_PLAN.md) for detailed 4-week roadmap.
    ```
 2. Services to expect:
    - Flower server: `http://localhost:8080`
-   - FastAPI REST: `http://localhost:8000` (collections: `/anomalies`, `/classifications`, `/predictions`, `/alerts`, `/fl-events`)
+   - FastAPI REST: `http://localhost:8000` (endpoints: `/anomalies`, `/classifications`, `/predictions`, `/alerts`, `/fl-events`)
    - FastAPI WebSocket: `ws://localhost:8000/ws/events`
-   - React dashboard: `http://localhost:4173`
-   - PostgreSQL: `postgres://postgres:postgres@localhost:5432/attacks`
+   - Next.js dashboard: `http://localhost:3000`
+   - PostgreSQL: `postgres://postgres:postgres@localhost:5432/ics_threat_detection`
 3. Stop everything:
    ```bash
    docker compose down
@@ -295,10 +297,11 @@ Flower-set-up/
 │   ├── severity_predictor/       # Severity forecaster (weighted scoring)
 │   └── fastapi_backend/          # REST + WebSocket API
 │
-├── dashboard/                    # Frontend + backend UI
-│   ├── src/                      # Vite + React (simple version)
-│   ├── frontend/                 # Next.js (production version)
-│   └── backend/                  # Alternative FastAPI backend
+├── dashboard/                    # Next.js frontend with React 19
+│   ├── app/                      # Next.js App Router pages
+│   ├── components/               # React components (Radix UI)
+│   ├── utils/                    # Utilities and mock data
+│   └── tdd/                      # Test-driven development docs
 │
 ├── docker/                       # Shared Dockerfile for Python services
 ├── docs/                         # Architecture, cleanup plans, guides
@@ -362,6 +365,16 @@ If you use this in research, please cite:
 ---
 
 **Project Status**: 🚧 Active Development | **Maturity**: Research Prototype  
-**Last Updated**: November 2025
+**Last Updated**: November 17, 2025
+
+---
+
+## 🏆 IEEE IAS Technical Challenge
+
+This project is submitted for **IEEE Industry Applications Society (IAS) Technical Challenge Phase 2** in the **System Control & Cybersecurity** category.
+
+**Core Innovation**: Privacy-preserving collaborative learning for critical infrastructure defense.
+
+See [`IAS_TECHNICAL_SUMMARY.md`](IAS_TECHNICAL_SUMMARY.md) for complete technical documentation and [`DEMO.md`](DEMO.md) for presentation script.
 
 **Questions?** Open an issue or check [`docs/`](docs/) for detailed guides.

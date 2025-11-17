@@ -9,7 +9,7 @@ The platform stitches together federated learning, classic anomaly detectors, ru
 | `network_data` | `network-simulator` | all anomaly detectors | Raw/normalized network flow samples |
 | `anomalies` | `anomaly-lstm`, `anomaly-iforest`, `anomaly-physics` | `threat-classifier`, FastAPI | Detector id, score, rich context |
 | `attack_classified` | `threat-classifier` | `severity-predictor`, FastAPI | Attack type probabilities |
-| `attack_predicted` | `gnn-predictor` | FastAPI | GNN severity/next-hop predictions |
+| `attack_predicted` | `severity-predictor` | FastAPI | Severity/next-hop predictions |
 | `fl_events` | Flower server & DP clients | FastAPI, dashboard | Round metrics, per-client noise budget |
 | `alerts` | `gnn-predictor`, FastAPI | Dashboard, downstream SOAR | Human-friendly alert summaries |
 

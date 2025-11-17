@@ -1,12 +1,12 @@
 # 🛡️ FedICS — Federated Intrusion Detection for Critical Systems
 
-**A streaming-first, privacy-preserving network attack detection platform combining federated learning, Kafka event processing, and real-time threat intelligence.**
+**Privacy-preserving collaborative threat detection for industrial control systems using federated learning.**
 
 ---
 
 ## What This System Does
 
-FedICS (Federated ICS Security) is a research prototype that demonstrates how industrial control systems (ICS) and critical infrastructure can detect, classify, and predict network attacks while keeping sensitive operational data private through **federated learning**.
+**FedICS** (Federated ICS Security) is an IEEE IAS Technical Challenge Phase 2 prototype demonstrating how industrial control systems (ICS) and critical infrastructure can **detect, classify, and predict network attacks** while keeping sensitive operational data private through **federated learning**.
 
 The platform:
 - 🔍 Detects anomalies using **3 detection engines** (LSTM Autoencoder, Isolation Forest, Physics Rules)
